@@ -6,3 +6,6 @@ zope.event==6.1
 tools==1.0.23
 openupgradelib==3.12.0
 odoo_upgrade @ git+https://github.com/odoo/upgrade-util@master
+
+# paquetes para sulh reportes — compatible con Python 3.12
+weasyprint==69.0
