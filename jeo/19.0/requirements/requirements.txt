@@ -9,3 +9,6 @@ odoo_upgrade @ git+https://github.com/odoo/upgrade-util@master
 
 # paquetes para sulh reportes — compatible con Python 3.12
 weasyprint==69.0
+
+# test / coverage
+coverage==7.16.1

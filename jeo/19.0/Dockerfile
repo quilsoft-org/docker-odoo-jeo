@@ -63,9 +63,9 @@ RUN pip install --no-cache-dir \
 
 # Requerimientos adicionales del usuario
 COPY ./requirements /req
-RUN if [ -f /req/requirements.txt ]; then \
-        pip install --no-cache-dir -r /req/requirements.txt; \
-    fi && rm -rf /req
+RUN pip install --no-cache-dir -r /req/requirements.txt && \
+    pip install --no-cache-dir -r /req/adhoc-aeroo_reports.txt && \
+    rm -rf /req
 
 # Instalar wasd wheel
 
@@ -96,10 +96,12 @@ RUN sed -i 's|http://archive.ubuntu.com|http://ubuntu.unc.edu.ar|g' /etc/apt/sou
         ca-certificates \
         curl \
         gnupg \
+        fonts-dejavu-core \
         fonts-noto-cjk \
         libssl3 \
         libpq5 \
         libldap2 \
+        libmagic1 \
         libsasl2-2 \
         node-less \
         python3 \
@@ -153,14 +155,15 @@ ENV BKP_DIR=/var/odoo/backups
 ENV ADDONS_DIR=/opt/odoo/custom-addons
 ENV ODOO_RC=${ETC_DIR}/odoo.conf
 
-RUN mkdir -p ${ETC_DIR} ${DATA_DIR} ${ADDONS_DIR} ${BKP_DIR} ${LOG_DIR} /var/odoo
+RUN mkdir -p ${ETC_DIR} ${DATA_DIR} ${ADDONS_DIR} ${BKP_DIR} ${LOG_DIR} /var/odoo && \
+    chown -R odoo:odoo ${DATA_DIR} ${ADDONS_DIR} ${BKP_DIR} ${LOG_DIR} /var/odoo
 
 COPY entrypoint.sh /
 COPY odoo.conf ${ETC_DIR}/
 COPY wait-for-psql.py /usr/local/bin/wait-for-psql.py
 RUN chmod +x /entrypoint.sh /usr/local/bin/wait-for-psql.py
-RUN pip3 install coverage
 
 EXPOSE 8069 8071 8072
 USER odoo
 ENTRYPOINT ["/entrypoint.sh"]
+CMD ["odoo-bin"]
