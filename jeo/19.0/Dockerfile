@@ -12,7 +12,11 @@ ENV ODOO_RELEASE=${ODOO_RELEASE}
 ENV ODOO_HOME=/odoo
 ENV VENV_PATH=/odoo/venv
 
-RUN sed -i 's|http://archive.ubuntu.com|http://ubuntu.unc.edu.ar|g' /etc/apt/sources.list.d/ubuntu.sources && \
+# Mirror apt y pin de Odoo (ARGs para builds reproducibles / otros mirrors)
+ARG APT_MIRROR=http://ubuntu.unc.edu.ar
+ARG ODOO_COMMIT=4e7b84db9455086754164db5e404987c34d48eb7
+
+RUN sed -i "s|http://archive.ubuntu.com|${APT_MIRROR}|g" /etc/apt/sources.list.d/ubuntu.sources && \
     apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         ca-certificates \
@@ -37,9 +41,11 @@ ENV PATH="${VENV_PATH}/bin:${PATH}"
 # Actualizar pip
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
-# Clonar Odoo y eliminar .git para ahorrar ~200MB
+# Clonar Odoo pinneado a commit (reproducible) y eliminar .git para ahorrar ~200MB
 RUN git clone --depth 1 --branch ${ODOO_VERSION} \
         https://www.github.com/odoo/odoo ${ODOO_HOME}/odoo-src && \
+    git -C ${ODOO_HOME}/odoo-src fetch --depth 1 origin ${ODOO_COMMIT} && \
+    git -C ${ODOO_HOME}/odoo-src checkout -f ${ODOO_COMMIT} && \
     rm -rf ${ODOO_HOME}/odoo-src/.git
 
 # Instalar requerimientos de Odoo Core
@@ -67,8 +73,6 @@ RUN pip install --no-cache-dir -r /req/requirements.txt && \
     pip install --no-cache-dir -r /req/adhoc-aeroo_reports.txt && \
     rm -rf /req
 
-# Instalar wasd wheel
-
 # Instalar rtlcss y limpiar cache de npm
 RUN npm install -g rtlcss && npm cache clean --force
 
@@ -89,8 +93,11 @@ ENV ODOO_HOME=/odoo
 ENV VENV_PATH=/odoo/venv
 ENV PATH="${VENV_PATH}/bin:${ODOO_HOME}/odoo-src:${PATH}"
 
+# Mirror apt (ARG para construir en otros lados sin editar el Dockerfile)
+ARG APT_MIRROR=http://ubuntu.unc.edu.ar
+
 # Solo librerías de RUNTIME (sin *-dev, sin build-essential, sin git, sin npm)
-RUN sed -i 's|http://archive.ubuntu.com|http://ubuntu.unc.edu.ar|g' /etc/apt/sources.list.d/ubuntu.sources && \
+RUN sed -i "s|http://archive.ubuntu.com|${APT_MIRROR}|g" /etc/apt/sources.list.d/ubuntu.sources && \
     apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         ca-certificates \
@@ -126,8 +133,9 @@ RUN apt-get update && \
     libpango-1.0-0 \
     libpangocairo-1.0-0 \
     libgdk-pixbuf2.0-0 \
-    libffi-dev \
-    shared-mime-info
+    libffi8 \
+    shared-mime-info && \
+    rm -rf /var/lib/apt/lists/*
 
 # Instalar cliente PostgreSQL desde el repo oficial
 RUN echo 'deb http://apt.postgresql.org/pub/repos/apt/ noble-pgdg main' > /etc/apt/sources.list.d/pgdg.list && \

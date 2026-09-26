@@ -19,9 +19,14 @@ DB_ARGS=()
 function check_config() {
     param="$1"
     value="$2"
-    if grep -q -E "^\s*\b${param}\b\s*=" "$ODOO_RC" ; then
-        value=$(grep -E "^\s*\b${param}\b\s*=" "$ODOO_RC" |cut -d " " -f3|sed 's/["\n\r]//g')
-    fi;
+    # Si el parámetro está definido (activo) en el config, pisa el default del entorno.
+    # Ignora líneas comentadas y tolera espacios variables alrededor del "=".
+    conf_value="$(sed -n -E "s/^[[:space:]]*${param}[[:space:]]*=[[:space:]]*//p" "$ODOO_RC" | head -n1)"
+    conf_value="${conf_value%$'\r'}"
+    conf_value="${conf_value#\"}"; conf_value="${conf_value%\"}"
+    if [ -n "${conf_value}" ]; then
+        value="${conf_value}"
+    fi
     DB_ARGS+=("--${param}")
     DB_ARGS+=("${value}")
 }
@@ -36,12 +41,12 @@ case "$1" in
         if [[ "$1" == "scaffold" ]] ; then
             exec odoo-bin "$@"
         else
-            wait-for-psql.py ${DB_ARGS[@]} --timeout=30
+            wait-for-psql.py "${DB_ARGS[@]}" --timeout=30
             exec odoo-bin "$@" "${DB_ARGS[@]}"
         fi
         ;;
     -*)
-        wait-for-psql.py ${DB_ARGS[@]} --timeout=30
+        wait-for-psql.py "${DB_ARGS[@]}" --timeout=30
         exec odoo-bin "$@" "${DB_ARGS[@]}"
         ;;
     *)
