@@ -41,9 +41,17 @@ Python 3.9) al patrón git clone + venv + multi-stage, en **jammy** (Python 3.10
   Queda anotado para migrar después.
 
 ## Verificación
-- `docker build` de 16.0 (sin push).
+- `docker build` de 16.0: **OK** (imagen 1.89GB, sin errores).
+- Fixes necesarios durante la verificación: `swig` en el builder (M2Crypto).
 
 ## Registro de commits
 | Commit | Contenido |
 |---|---|
-| (pendiente) | — |
+| `25de91e` | Migrar imagen Odoo 16.0 a git + venv (Dockerfile, odoo.conf, entrypoint, wait-for-psql, .dockerignore, .gitignore, make.sh) |
+| `faf21c3` | Quitar scripts extract y alinear 16.0.debug |
+| `773e7bc` | [FIX] agregar swig al builder (M2Crypto) |
+
+## Estado
+- Código migrado, corregido y commiteado en `master.mejoras-v16`.
+- Build verificado sin errores (imagen 1.89GB).
+- Pendiente (decisión del usuario): push de `master.mejoras-v16` y PR/merge a `master`.
