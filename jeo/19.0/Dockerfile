@@ -12,7 +12,10 @@ ENV ODOO_RELEASE=${ODOO_RELEASE}
 ENV ODOO_HOME=/odoo
 ENV VENV_PATH=/odoo/venv
 
-RUN sed -i 's|http://archive.ubuntu.com|http://ubuntu.unc.edu.ar|g' /etc/apt/sources.list.d/ubuntu.sources && \
+# Mirror apt (ARG para construir en otros lados sin editar el Dockerfile)
+ARG APT_MIRROR=http://ubuntu.unc.edu.ar
+
+RUN sed -i "s|http://archive.ubuntu.com|${APT_MIRROR}|g" /etc/apt/sources.list.d/ubuntu.sources && \
     apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         ca-certificates \
@@ -37,7 +40,8 @@ ENV PATH="${VENV_PATH}/bin:${PATH}"
 # Actualizar pip
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
-# Clonar Odoo y eliminar .git para ahorrar ~200MB
+# Clonar Odoo: seguimos la rama ${ODOO_VERSION} (HEAD móvil) para traer siempre
+# los últimos cambios. Eliminar .git para ahorrar ~200MB.
 RUN git clone --depth 1 --branch ${ODOO_VERSION} \
         https://www.github.com/odoo/odoo ${ODOO_HOME}/odoo-src && \
     rm -rf ${ODOO_HOME}/odoo-src/.git
@@ -63,11 +67,9 @@ RUN pip install --no-cache-dir \
 
 # Requerimientos adicionales del usuario
 COPY ./requirements /req
-RUN if [ -f /req/requirements.txt ]; then \
-        pip install --no-cache-dir -r /req/requirements.txt; \
-    fi && rm -rf /req
-
-# Instalar wasd wheel
+RUN pip install --no-cache-dir -r /req/requirements.txt && \
+    pip install --no-cache-dir -r /req/adhoc-aeroo_reports.txt && \
+    rm -rf /req
 
 # Instalar rtlcss y limpiar cache de npm
 RUN npm install -g rtlcss && npm cache clean --force
@@ -89,17 +91,22 @@ ENV ODOO_HOME=/odoo
 ENV VENV_PATH=/odoo/venv
 ENV PATH="${VENV_PATH}/bin:${ODOO_HOME}/odoo-src:${PATH}"
 
+# Mirror apt (ARG para construir en otros lados sin editar el Dockerfile)
+ARG APT_MIRROR=http://ubuntu.unc.edu.ar
+
 # Solo librerías de RUNTIME (sin *-dev, sin build-essential, sin git, sin npm)
-RUN sed -i 's|http://archive.ubuntu.com|http://ubuntu.unc.edu.ar|g' /etc/apt/sources.list.d/ubuntu.sources && \
+RUN sed -i "s|http://archive.ubuntu.com|${APT_MIRROR}|g" /etc/apt/sources.list.d/ubuntu.sources && \
     apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         ca-certificates \
         curl \
         gnupg \
+        fonts-dejavu-core \
         fonts-noto-cjk \
         libssl3 \
         libpq5 \
         libldap2 \
+        libmagic1 \
         libsasl2-2 \
         node-less \
         python3 \
@@ -124,8 +131,9 @@ RUN apt-get update && \
     libpango-1.0-0 \
     libpangocairo-1.0-0 \
     libgdk-pixbuf2.0-0 \
-    libffi-dev \
-    shared-mime-info
+    libffi8 \
+    shared-mime-info && \
+    rm -rf /var/lib/apt/lists/*
 
 # Instalar cliente PostgreSQL desde el repo oficial
 RUN echo 'deb http://apt.postgresql.org/pub/repos/apt/ noble-pgdg main' > /etc/apt/sources.list.d/pgdg.list && \
@@ -153,14 +161,15 @@ ENV BKP_DIR=/var/odoo/backups
 ENV ADDONS_DIR=/opt/odoo/custom-addons
 ENV ODOO_RC=${ETC_DIR}/odoo.conf
 
-RUN mkdir -p ${ETC_DIR} ${DATA_DIR} ${ADDONS_DIR} ${BKP_DIR} ${LOG_DIR} /var/odoo
+RUN mkdir -p ${ETC_DIR} ${DATA_DIR} ${ADDONS_DIR} ${BKP_DIR} ${LOG_DIR} /var/odoo && \
+    chown -R odoo:odoo ${DATA_DIR} ${ADDONS_DIR} ${BKP_DIR} ${LOG_DIR} /var/odoo
 
 COPY entrypoint.sh /
 COPY odoo.conf ${ETC_DIR}/
 COPY wait-for-psql.py /usr/local/bin/wait-for-psql.py
 RUN chmod +x /entrypoint.sh /usr/local/bin/wait-for-psql.py
-RUN pip3 install coverage
 
 EXPOSE 8069 8071 8072
 USER odoo
 ENTRYPOINT ["/entrypoint.sh"]
+CMD ["odoo-bin"]

@@ -5,7 +5,10 @@ pika==1.3.2
 zope.event==6.1
 tools==1.0.23
 openupgradelib==3.12.0
-odoo_upgrade @ git+https://github.com/odoo/upgrade-util@master
+odoo_upgrade @ git+https://github.com/odoo/upgrade-util@c247ceb8855872e7226ca44b1ded877fc3153e6c
 
 # paquetes para sulh reportes — compatible con Python 3.12
 weasyprint==69.0
+
+# test / coverage
+coverage==7.16.1
