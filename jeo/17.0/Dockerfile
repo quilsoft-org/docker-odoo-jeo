@@ -105,7 +105,7 @@ RUN sed -i "s|http://archive.ubuntu.com|${APT_MIRROR}|g" /etc/apt/sources.list &
         fonts-noto-cjk \
         libssl3 \
         libpq5 \
-        libldap2 \
+        libldap-2.5-0 \
         libmagic1 \
         libsasl2-2 \
         node-less \
