@@ -30,7 +30,8 @@ RUN sed -i "s|http://archive.ubuntu.com|${APT_MIRROR}|g" /etc/apt/sources.list &
         libpq-dev \
         libldap2-dev \
         libsasl2-dev \
-        libssl-dev && \
+        libssl-dev \
+        swig && \
     rm -rf /var/lib/apt/lists/*
 
 # Crear venv (Python 3.10 nativo de jammy)
