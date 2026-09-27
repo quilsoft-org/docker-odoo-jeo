@@ -3,21 +3,17 @@ LABEL maintainer="Jorge Obiols <jorge.obiols@gmail.com>"
 
 USER root
 
-# scripts to extract sources to host
-COPY ./extract_dist-packages.sh /
-COPY ./extract_dist-local-packages.sh /
+# install wdb — master HEAD on purpose: Jorge owns the repo and wants the latest
+RUN /odoo/venv/bin/pip install --no-cache-dir \
+    https://github.com/jobiols/wdb/archive/refs/heads/master.tar.gz#subdirectory=client
 
-# install wdb
-RUN git clone https://github.com/jobiols/wdb.git /opt/wdb \
-    && pip install --no-cache-dir --break-system-packages /opt/wdb/client \
-    && rm -rf /opt/wdb
+# debugpy para debugear con visual studio
+RUN /odoo/venv/bin/pip install --no-cache-dir debugpy
 
-# Para debugear con visual studio sin esto no anda el debugger wdb 
-RUN pip3 install debugpy
+# parche para no chequear password en debug (re-apuntado al path del venv)
+RUN sed -i "s/raise AccessDenied()/pass/" /odoo/odoo-src/odoo/addons/base/models/res_users.py
 
-# Hacer el parche para que no cheque password
-RUN sed -i  "s/raise AccessDenied()/pass/" /usr/lib/python3/dist-packages/odoo/addons/base/models/res_users.py
-
-RUN apt install procps -y
+# procps (ps) para debug
+RUN apt-get update && apt-get install -y --no-install-recommends procps && rm -rf /var/lib/apt/lists/*
 
 USER odoo
