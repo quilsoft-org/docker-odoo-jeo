@@ -46,6 +46,13 @@ RUN git clone --depth 1 --branch ${ODOO_VERSION} \
         https://www.github.com/odoo/odoo ${ODOO_HOME}/odoo-src && \
     rm -rf ${ODOO_HOME}/odoo-src/.git
 
+# Odoo 17 pinnea gevent==21.8.0 y greenlet==1.1.2 para Python 3.10 (jammy), pero
+# gevent 21.8.0 no tiene wheel Linux cp310 y no compila con Cython 3.x. Subimos a
+# las versiones que Odoo ya usa para 3.11+ (gevent 22.10.2 + greenlet 2.0.2),
+# que sí traen wheel cp310.
+RUN sed -i 's/gevent==21.8.0/gevent==22.10.2/; s/greenlet==1.1.2/greenlet==2.0.2/' \
+    ${ODOO_HOME}/odoo-src/requirements.txt
+
 # Instalar requerimientos de Odoo Core
 RUN pip install --no-cache-dir -r ${ODOO_HOME}/odoo-src/requirements.txt
 
