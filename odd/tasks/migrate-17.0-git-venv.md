@@ -50,14 +50,18 @@ git clone + venv + multi-stage real, espejando 18.0/19.0 pero quedándonos en
   el patrón 18/19 usa `node-less` (que trae nodejs transitivamente) + rtlcss.
 
 ## Verificación
-- `docker build` de 17.0 (sin push).
+- `docker build` de 17.0: **OK** (imagen 1.93GB, sin errores).
+- Fixes necesarios durante la verificación: `libldap2`→`libldap-2.5-0` (jammy) y `gevent/greenlet` a versiones con wheel cp310.
 
 ## Registro de commits
 | Commit | Contenido |
 |---|---|
 | `fbc4a72` | Migrar imagen Odoo 17.0 a git + venv (Dockerfile, odoo.conf, entrypoint, wait-for-psql, requirements, .dockerignore, .gitignore, make.sh) |
 | `c6d8af0` | Quitar scripts extract y alinear 17.0.debug con 18/19 |
+| `32ee71d` | [FIX] libldap2→libldap-2.5-0 en runtime (jammy) |
+| `13ef828` | [FIX] subir gevent y greenlet a versiones con wheel cp310 |
 
 ## Estado
-- Código migrado y commiteado en `master.mejoras-v17`.
-- Pendiente: verificación real con `docker build` (sin push).
+- Código migrado, corregido y commiteado en `master.mejoras-v17`.
+- Build verificado sin errores (imagen 1.93GB).
+- Pendiente (decisión del usuario): push de `master.mejoras-v17` y PR/merge a `master`.
