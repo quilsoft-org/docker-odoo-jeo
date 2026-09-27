@@ -1,6 +1,8 @@
 #!/bin/bash
-
 set -e
+
+echo "Odoo $ODOO_VERSION Release $ODOO_RELEASE by Quilsoft"
+echo
 
 if [ -v PASSWORD_FILE ]; then
     PASSWORD="$(< $PASSWORD_FILE)"
@@ -17,9 +19,14 @@ DB_ARGS=()
 function check_config() {
     param="$1"
     value="$2"
-    if grep -q -E "^\s*\b${param}\b\s*=" "$ODOO_RC" ; then
-        value=$(grep -E "^\s*\b${param}\b\s*=" "$ODOO_RC" |cut -d " " -f3|sed 's/["\n\r]//g')
-    fi;
+    # Si el parámetro está definido (activo) en el config, pisa el default del entorno.
+    # Ignora líneas comentadas y tolera espacios variables alrededor del "=".
+    conf_value="$(sed -n -E "s/^[[:space:]]*${param}[[:space:]]*=[[:space:]]*//p" "$ODOO_RC" | head -n1)"
+    conf_value="${conf_value%$'\r'}"
+    conf_value="${conf_value#\"}"; conf_value="${conf_value%\"}"
+    if [ -n "${conf_value}" ]; then
+        value="${conf_value}"
+    fi
     DB_ARGS+=("--${param}")
     DB_ARGS+=("${value}")
 }
@@ -29,21 +36,22 @@ check_config "db_user" "$USER"
 check_config "db_password" "$PASSWORD"
 
 case "$1" in
-    -- | odoo)
+    -- | odoo-bin)
         shift
         if [[ "$1" == "scaffold" ]] ; then
-            exec odoo "$@"
+            exec odoo-bin "$@"
         else
-            wait-for-psql.py ${DB_ARGS[@]} --timeout=30
-            exec odoo "$@" "${DB_ARGS[@]}"
+            wait-for-psql.py "${DB_ARGS[@]}" --timeout=30
+            exec odoo-bin "$@" "${DB_ARGS[@]}"
         fi
         ;;
     -*)
-        wait-for-psql.py ${DB_ARGS[@]} --timeout=30
-        exec odoo "$@" "${DB_ARGS[@]}"
+        wait-for-psql.py "${DB_ARGS[@]}" --timeout=30
+        exec odoo-bin "$@" "${DB_ARGS[@]}"
         ;;
     *)
         exec "$@"
+        ;;
 esac
 
 exit 1
