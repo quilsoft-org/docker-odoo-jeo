@@ -39,9 +39,15 @@ git clone pinneado + venv + multi-stage real, espejando lo ya hecho en 19.0
 - `jeo/18.0.debug/Dockerfile` — wdb por tar.gz, debugpy `--no-cache-dir`; borrar `extract_*.sh`
 
 ## Verificación
-- `docker build` de 18.0 (sin push).
+- `docker build` de 18.0: **OK** (terminó sin errores, confirmado por el usuario).
 
 ## Registro de commits
 | Commit | Contenido |
 |---|---|
-| (pendiente) | — |
+| `fb202bc` | Migrar imagen Odoo 18.0 a git + venv (Dockerfile, odoo.conf, entrypoint, wait-for-psql, requirements, .dockerignore, .gitignore, make.sh) |
+| `599e8b0` | Quitar scripts extract y alinear 18.0.debug con 19.0.debug |
+
+## Estado
+- Código migrado y commiteado en `master.mejoras-v18`.
+- Build verificado sin errores.
+- Pendiente (decisión del usuario): push de `master.mejoras-v18` y PR/merge a `master`.
