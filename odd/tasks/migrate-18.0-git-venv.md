@@ -10,11 +10,12 @@ git clone pinneado + venv + multi-stage real, espejando lo ya hecho en 19.0
 - Requirements: **set actual de 18.0, pinneado** (sin importar extras de 19.0:
   pandas, pika, zope.event, tools, weasyprint).
 - `18.0.debug`: **incluido en esta pasada** (quitar scripts extract, alinear wdb/debugpy).
+- Odoo 18.0: **seguir la rama `18.0`** (HEAD móvil, sin pin de commit) — traer siempre los últimos cambios.
 
 ## Pins resueltos
 | Dependencia | Pin |
 |---|---|
-| Odoo 18.0 (HEAD rama `18.0`) | `bdb5a9a8f81563a87081ec17ef99bf0fbb8d4e98` |
+| Odoo 18.0 | sigue rama `18.0` (HEAD móvil, sin pin) |
 | adhoc-dev/aeroolib `master-fix-ods` | `d5bd0945c2aeb7ccd70e0e578b63f430ef9cc207` |
 | aeroo/currency2text | `e666e17eb54f5a49f5cfb3825d8513a4d1510249` |
 | ingadhoc/pyafipws `odoo18` | `2cf3b224977c1c5ac748bc386f3785ad06a42a87` |

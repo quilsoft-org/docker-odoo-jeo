@@ -12,9 +12,8 @@ ENV ODOO_RELEASE=${ODOO_RELEASE}
 ENV ODOO_HOME=/odoo
 ENV VENV_PATH=/odoo/venv
 
-# Mirror apt y pin de Odoo (ARGs para builds reproducibles / otros mirrors)
+# Mirror apt (ARG para construir en otros lados sin editar el Dockerfile)
 ARG APT_MIRROR=http://ubuntu.unc.edu.ar
-ARG ODOO_COMMIT=bdb5a9a8f81563a87081ec17ef99bf0fbb8d4e98
 
 RUN sed -i "s|http://archive.ubuntu.com|${APT_MIRROR}|g" /etc/apt/sources.list.d/ubuntu.sources && \
     apt-get update && \
@@ -41,11 +40,10 @@ ENV PATH="${VENV_PATH}/bin:${PATH}"
 # Actualizar pip
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
-# Clonar Odoo pinneado a commit (reproducible) y eliminar .git para ahorrar ~200MB
+# Clonar Odoo: seguimos la rama ${ODOO_VERSION} (HEAD móvil) para traer siempre
+# los últimos cambios. Eliminar .git para ahorrar ~200MB.
 RUN git clone --depth 1 --branch ${ODOO_VERSION} \
         https://www.github.com/odoo/odoo ${ODOO_HOME}/odoo-src && \
-    git -C ${ODOO_HOME}/odoo-src fetch --depth 1 origin ${ODOO_COMMIT} && \
-    git -C ${ODOO_HOME}/odoo-src checkout -f ${ODOO_COMMIT} && \
     rm -rf ${ODOO_HOME}/odoo-src/.git
 
 # Instalar requerimientos de Odoo Core
