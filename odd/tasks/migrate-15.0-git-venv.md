@@ -31,9 +31,16 @@ Por eso noble es la única base limpia para 15.0 (cero builds de fuente).
 - `jeo/15.0.debug/Dockerfile` — wdb client + debugpy + res_users; borrar `extract_*.sh`
 
 ## Verificación
-- `docker build` de 15.0 (sin push).
+- `docker build` de 15.0: **OK** (imagen 1.55GB, sin errores).
+- Único tropiezo: timeout de red bajando wkhtmltopdf de GitHub (transitorio); reintento OK.
 
 ## Registro de commits
 | Commit | Contenido |
 |---|---|
-| (pendiente) | — |
+| `5d3d972` | Migrar imagen Odoo 15.0 a git + venv (Dockerfile, odoo.conf, entrypoint, wait-for-psql, .dockerignore, .gitignore, make.sh) |
+| `9b8c029` | Quitar scripts extract y alinear 15.0.debug |
+
+## Estado
+- Código migrado y commiteado en `master.mejoras-v15`.
+- Build verificado sin errores (imagen 1.55GB).
+- Pendiente (decisión del usuario): push de `master.mejoras-v15` y PR/merge a `master`.
