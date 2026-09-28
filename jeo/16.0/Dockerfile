@@ -1,163 +1,192 @@
-FROM debian:bullseye-slim AS base-image
-LABEL maintainer="Odoo S.A. <info@odoo.com>"
+# ============================================================
+# STAGE 1: builder — compila todo, después lo descartamos
+# ============================================================
+FROM ubuntu:jammy AS builder
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
-# Generate locale C.UTF-8 for postgres and general locale data
-ENV LANG=C.UTF-8
+ENV LANG=en_US.UTF-8
+ENV ODOO_VERSION=16.0
+ARG ODOO_RELEASE
+ENV ODOO_RELEASE=${ODOO_RELEASE}
+ENV ODOO_HOME=/odoo
+ENV VENV_PATH=/odoo/venv
 
-# Retrieve the target architecture to install the correct wkhtmltopdf package
-ARG TARGETARCH
+# Mirror apt (ARG para construir en otros lados sin editar el Dockerfile)
+ARG APT_MIRROR=http://ubuntu.unc.edu.ar
 
-# Install some deps, lessc and less-plugin-clean-css, and wkhtmltopdf
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
+RUN sed -i "s|http://archive.ubuntu.com|${APT_MIRROR}|g" /etc/apt/sources.list && \
+    apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         ca-certificates \
         curl \
-        dirmngr \
-        fonts-noto-cjk \
-        gnupg \
-        libssl-dev \
-        node-less \
+        git \
         npm \
-        python3-magic \
-        python3-num2words \
-        python3-odf \
-        python3-pdfminer \
+        python3-dev \
         python3-pip \
-        python3-phonenumbers \
-        python3-pyldap \
-        python3-qrcode \
-        python3-renderpm \
-        python3-setuptools \
-        python3-slugify \
-        python3-vobject \
-        python3-watchdog \
-        python3-xlrd \
-        python3-xlwt \
-        xz-utils && \
-    if [ -z "${TARGETARCH}" ]; then \
-        TARGETARCH="$(dpkg --print-architecture)"; \
-    fi; \
-    WKHTMLTOPDF_ARCH=${TARGETARCH} && \
-    case ${TARGETARCH} in \
-    "amd64") WKHTMLTOPDF_ARCH=amd64 && WKHTMLTOPDF_SHA=9df8dd7b1e99782f1cfa19aca665969bbd9cc159  ;; \
-    "arm64")  WKHTMLTOPDF_SHA=58c84db46b11ba0e14abb77a32324b1c257f1f22  ;; \
-    "ppc64le" | "ppc64el") WKHTMLTOPDF_ARCH=ppc64el && WKHTMLTOPDF_SHA=7ed8f6dcedf5345a3dd4eeb58dc89704d862f9cd  ;; \
-    esac \
-    && curl -o wkhtmltox.deb -sSL https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6.1-3/wkhtmltox_0.12.6.1-3.bullseye_${WKHTMLTOPDF_ARCH}.deb \
-    && echo ${WKHTMLTOPDF_SHA} wkhtmltox.deb | sha1sum -c - \
-    && apt-get install -y --no-install-recommends ./wkhtmltox.deb \
-    && rm -rf /var/lib/apt/lists/* wkhtmltox.deb
+        python3-venv \
+        build-essential \
+        gcc \
+        libpq-dev \
+        libldap2-dev \
+        libsasl2-dev \
+        libssl-dev \
+        swig && \
+    rm -rf /var/lib/apt/lists/*
 
-# install latest postgresql-client
-RUN echo 'deb http://apt.postgresql.org/pub/repos/apt/ bullseye-pgdg main' > /etc/apt/sources.list.d/pgdg.list \
-    && GNUPGHOME="$(mktemp -d)" \
-    && export GNUPGHOME \
-    && repokey='B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8' \
-    && gpg --batch --keyserver keyserver.ubuntu.com --recv-keys "${repokey}" \
-    && gpg --batch --armor --export "${repokey}" > /etc/apt/trusted.gpg.d/pgdg.gpg.asc \
-    && gpgconf --kill all \
-    && rm -rf "$GNUPGHOME" \
-    && apt-get update  \
-    && apt-get install --no-install-recommends -y postgresql-client \
-    && rm -f /etc/apt/sources.list.d/pgdg.list \
-    && rm -rf /var/lib/apt/lists/*
+# Crear venv (Python 3.10 nativo de jammy)
+RUN python3 -m venv ${VENV_PATH}
+ENV PATH="${VENV_PATH}/bin:${PATH}"
 
-# Install rtlcss (on Debian buster)
-RUN npm install -g rtlcss
+# Actualizar pip
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
-# Antes de instlar odoo actualizamos xlswriter porque odoo instala una version vieja
-RUN pip install xlsxwriter>=3.2.5
+# Clonar Odoo: seguimos la rama ${ODOO_VERSION} (HEAD móvil) para traer siempre
+# los últimos cambios. Eliminar .git para ahorrar ~200MB.
+RUN git clone --depth 1 --branch ${ODOO_VERSION} \
+        https://www.github.com/odoo/odoo ${ODOO_HOME}/odoo-src && \
+    rm -rf ${ODOO_HOME}/odoo-src/.git
 
-# Install Odoo
-ENV ODOO_VERSION=16.0
-ARG ODOO_RELEASE=latest
-#ARG ODOO_SHA=1fb02a432e076dd71aca7a7611a07223919356b9
-RUN curl -o odoo.deb -sSL http://nightly.odoo.com/${ODOO_VERSION}/nightly/deb/odoo_${ODOO_VERSION}.${ODOO_RELEASE}_all.deb \
-#    && echo "${ODOO_SHA} odoo.deb" | sha1sum -c - \
-    && apt-get update \
-    && apt-get -y install --no-install-recommends ./odoo.deb \
-    && rm -rf /var/lib/apt/lists/* odoo.deb
+# Odoo 16 pinnea para Python 3.10 (jammy) versiones sin wheel cp310 que no
+# compilan con Cython 3.x. Subimos a las versiones que Odoo usa para 3.11+,
+# que sí traen wheel cp310.
+RUN sed -i 's/gevent==21.8.0/gevent==22.10.2/; s/greenlet==1.1.2/greenlet==2.0.2/; s/MarkupSafe==1.1.1/MarkupSafe==2.0.1/' \
+    ${ODOO_HOME}/odoo-src/requirements.txt
 
-#Cambiar uid y gid en odoo
-RUN groupmod -g 1100 odoo \
-  && usermod -u 1100 -g 1100 odoo
+# Instalar requerimientos de Odoo Core
+RUN pip install --no-cache-dir -r ${ODOO_HOME}/odoo-src/requirements.txt
 
-# Copy entrypoint script and Odoo configuration file
-COPY ./entrypoint.sh /
-COPY ./odoo.conf /etc/odoo/
+# Instalar dependencias extra comunes en módulos Odoo
+RUN pip install --no-cache-dir \
+    python-magic \
+    num2words \
+    odfpy \
+    pdfminer.six \
+    phonenumbers \
+    python-ldap \
+    qrcode \
+    Pillow \
+    reportlab \
+    vobject \
+    watchdog \
+    xlrd \
+    xlwt
 
-# Set permissions and Mount /var/lib/odoo to allow restoring filestore and /mnt/extra-addons for users addons
-RUN chown odoo /etc/odoo/odoo.conf \
-    && mkdir -p /mnt/extra-addons \
-    && chown -R odoo /mnt/extra-addons
-VOLUME ["/var/lib/odoo", "/mnt/extra-addons"]
+# Odoo instala una versión vieja de xlsxwriter; la forzamos a una reciente
+RUN pip install --no-cache-dir "xlsxwriter>=3.2.5"
 
-# Expose Odoo services
-EXPOSE 8069 8071 8072
+# Requerimientos adicionales del usuario
+COPY ./requirements /req
+RUN pip install --no-cache-dir -r /req/requirements.txt && \
+    pip install --no-cache-dir -r /req/odoo-argentina.txt && \
+    rm -rf /req
 
-# Set the default config file
-ENV ODOO_RC=/etc/odoo/odoo.conf
+# Instalar rtlcss y limpiar cache de npm
+RUN npm install -g rtlcss && npm cache clean --force
 
-COPY wait-for-psql.py /usr/local/bin/wait-for-psql.py
+# ============================================================
+# STAGE 2: runtime — ubuntu:jammy para Python 3.10 (Odoo 16 no soporta 3.12)
+# ============================================================
+FROM ubuntu:jammy AS runtime
 
-# Set default user when running the container
-USER odoo
-
-ENTRYPOINT ["/entrypoint.sh"]
-CMD ["odoo"]
-
-###############################################################################
-############################ Fin de base image ################################
-###############################################################################
-
-FROM base-image
 LABEL maintainer="Jorge Obiols <jorge.obiols@gmail.com>"
+SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
-USER root
+ENV LANG=en_US.UTF-8
+ENV ODOO_VERSION=16.0
+ARG ODOO_RELEASE
+ENV ODOO_RELEASE=${ODOO_RELEASE}
+ENV ODOO_HOME=/odoo
+ENV VENV_PATH=/odoo/venv
+ENV PATH="${VENV_PATH}/bin:${ODOO_HOME}/odoo-src:${PATH}"
 
+# Mirror apt (ARG para construir en otros lados sin editar el Dockerfile)
+ARG APT_MIRROR=http://ubuntu.unc.edu.ar
+
+# Solo librerías de RUNTIME (sin *-dev, sin build-essential, sin git, sin npm)
+RUN sed -i "s|http://archive.ubuntu.com|${APT_MIRROR}|g" /etc/apt/sources.list && \
+    apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        gnupg \
+        fonts-dejavu-core \
+        fonts-noto-cjk \
+        libssl3 \
+        libpq5 \
+        libldap-2.5-0 \
+        libmagic1 \
+        libsasl2-2 \
+        node-less \
+        openssl \
+        python3 \
+        xz-utils && \
+    # Instalar wkhtmltopdf
+    TARGETARCH=${TARGETARCH:-$(dpkg --print-architecture)} && \
+    case ${TARGETARCH} in \
+        "amd64") WKHTMLTOPDF_SHA=967390a759707337b46d1c02452e2bb6b2dc6d59 ;; \
+        "arm64") WKHTMLTOPDF_SHA=90f6e69896d51ef77339d3f3a20f8582bdf496cc ;; \
+    esac && \
+    curl -o wkhtmltox.deb -sSL \
+        https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6.1-3/wkhtmltox_0.12.6.1-3.jammy_${TARGETARCH}.deb && \
+    echo ${WKHTMLTOPDF_SHA} wkhtmltox.deb | sha1sum -c - && \
+    apt-get install -y --no-install-recommends ./wkhtmltox.deb && \
+    rm -rf /var/lib/apt/lists/* wkhtmltox.deb
+
+
+# Instalar dependencias de librerías gráficas para reportes
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    libcairo2 \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libgdk-pixbuf2.0-0 \
+    libffi8 \
+    shared-mime-info && \
+    rm -rf /var/lib/apt/lists/*
+
+# Instalar cliente PostgreSQL desde el repo oficial
+RUN echo 'deb http://apt.postgresql.org/pub/repos/apt/ jammy-pgdg main' > /etc/apt/sources.list.d/pgdg.list && \
+    curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /etc/apt/trusted.gpg.d/postgresql.gpg && \
+    apt-get update && \
+    apt-get install --no-install-recommends -y postgresql-client && \
+    rm -rf /var/lib/apt/lists/*
+
+# Crear usuario odoo
+RUN addgroup --gid 1100 odoo && \
+    adduser --system --uid 1100 --gid 1100 \
+            --shell /bin/bash --home ${ODOO_HOME} --gecos "ODOO" odoo
+
+# Copiar artefactos compilados desde el builder
+COPY --from=builder --chown=odoo:odoo ${VENV_PATH}            ${VENV_PATH}
+COPY --from=builder --chown=odoo:odoo ${ODOO_HOME}/odoo-src   ${ODOO_HOME}/odoo-src
+COPY --from=builder /usr/local/lib/node_modules   /usr/local/lib/node_modules
+COPY --from=builder /usr/local/bin/rtlcss         /usr/local/bin/rtlcss
+
+# Configurar directorios y permisos
 ENV ETC_DIR=/opt/odoo/etc
 ENV DATA_DIR=/opt/odoo/data
 ENV LOG_DIR=/var/log/odoo
 ENV BKP_DIR=/var/odoo/backups
 ENV ADDONS_DIR=/opt/odoo/custom-addons
 ENV ODOO_RC=${ETC_DIR}/odoo.conf
-RUN \
-       mkdir -p ${ETC_DIR} \
-    && mkdir -p ${DATA_DIR} \
-    && mkdir -p ${LOG_DIR} \
-    && mkdir -p ${BKP_DIR} \
-    && mkdir -p ${ADDONS_DIR} \
-    && chown -R odoo.odoo /opt/odoo \
-    && chown -R odoo.odoo /var/odoo
 
-# instalar el ultimo pip
-RUN curl -fsSL https://bootstrap.pypa.io/get-pip.py -o get-pip.py \
-    && python3 get-pip.py \
-    && rm get-pip.py
+RUN mkdir -p ${ETC_DIR} ${DATA_DIR} ${ADDONS_DIR} ${BKP_DIR} ${LOG_DIR} /var/odoo && \
+    chown -R odoo:odoo ${DATA_DIR} ${ADDONS_DIR} ${BKP_DIR} ${LOG_DIR} /var/odoo
 
-RUN apt-get -qq update && apt-get install -yqq --no-install-recommends \
-    git python3-dev build-essential swig
+# Cache para pyafipws (base sqlite que se refresca desde padron AFIP)
+RUN mkdir -p ${VENV_PATH}/lib/python3.10/site-packages/pyafipws/cache && \
+    chmod -R 777 ${VENV_PATH}/lib/python3.10/site-packages/pyafipws
 
-COPY ./requirements /req
-RUN pip3 install --no-cache-dir --no-deps --use-pep517 -r /req/requirements.txt
-RUN pip3 install --no-cache-dir --no-deps -r /req/odoo-argentina.txt
-#RUN pip3 install -r /req/adhoc-aeroo_reports.txt
-RUN rm -r /req
+# AFIP tiene cifrado débil (DH_KEY_TOO_SMALL); bajamos SECLEVEL a 1
+RUN sed -i "s/CipherString = DEFAULT:@SECLEVEL=2/CipherString = DEFAULT:@SECLEVEL=1/" /etc/ssl/openssl.cnf
 
-# crear cache para pyafipws lo necesita para actualizar desde padron y darle
-# permisos para que pueda escribir desde pyafipws porque ahi hay una base
-# sqlite que se usa cuando se refrescan actividades, impuestos y conceptos.
-RUN mkdir /usr/local/lib/python3.9/dist-packages/pyafipws/cache
-RUN chmod -R 777 /usr/local/lib/python3.9/dist-packages/pyafipws
+COPY entrypoint.sh /
+COPY odoo.conf ${ETC_DIR}/
+COPY wait-for-psql.py /usr/local/bin/wait-for-psql.py
+RUN chmod +x /entrypoint.sh /usr/local/bin/wait-for-psql.py
 
-# bajar el cifrado del cliente para evitar el error DH_KEY_TOO_SMALL
-# parece que la afip tiene un cifrado debil.
-RUN sed -i  "s/CipherString = DEFAULT@SECLEVEL=2/CipherString = DEFAULT@SECLEVEL=1/" /etc/ssl/openssl.cnf
-
-# reportlab esta dando un deprecation warning por lo que lo actualizamos quitamos porque da un error en despachar desde inventario
-#RUN pip3 install --no-cache-dir --upgrade reportlab>=4.4.3
-
-
+EXPOSE 8069 8071 8072
 USER odoo
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["odoo-bin"]
