@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# En un archivo nuevo llamado: wait-for-psql-debug.py
 
 import argparse
 import sys
