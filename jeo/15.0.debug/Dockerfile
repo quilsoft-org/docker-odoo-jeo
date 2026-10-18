@@ -3,17 +3,14 @@ LABEL maintainer="Jorge Obiols <jorge.obiols@gmail.com>"
 
 USER root
 
-# scripts to extract sources to host
-COPY ./extract_dist-packages.sh /
-COPY ./extract_dist-local-packages.sh /
+# install wdb — master HEAD on purpose: Jorge owns the repo and wants the latest
+RUN /odoo/venv/bin/pip install --no-cache-dir \
+    https://github.com/jobiols/wdb/archive/refs/heads/master.tar.gz#subdirectory=client
 
-# install wdb
-RUN pip3 install wdb
+# debugpy para debugear
+RUN /odoo/venv/bin/pip install --no-cache-dir debugpy
 
-# Hacer el parche para que no cheque password
-RUN sed -i  "s/raise AccessDenied()/pass/" /usr/lib/python3/dist-packages/odoo/addons/base/models/res_users.py
-
-# Correr un demonio para atrapar los mails.
-RUN python3 -m smtpd -n -c DebuggingServer localhost:2500 >  /var/log/odoo/maillog.txt &
+# parche para no chequear password en debug (re-apuntado al path del venv)
+RUN sed -i "s/raise AccessDenied()/pass/" /odoo/odoo-src/odoo/addons/base/models/res_users.py
 
 USER odoo
