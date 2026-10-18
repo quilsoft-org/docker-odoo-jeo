@@ -30,7 +30,9 @@ RUN sed -i "s|http://archive.ubuntu.com|${APT_MIRROR}|g" /etc/apt/sources.list.d
         libpq-dev \
         libldap2-dev \
         libsasl2-dev \
-        libssl-dev && \
+        libssl-dev \
+        libcairo2-dev \
+        pkg-config && \
     rm -rf /var/lib/apt/lists/*
 
 # Crear venv
@@ -60,6 +62,8 @@ RUN pip install --no-cache-dir \
     qrcode \
     Pillow \
     reportlab \
+    rlPyCairo \
+    "freetype-py>=2.3.0,<2.4" \
     vobject \
     watchdog \
     xlrd \
