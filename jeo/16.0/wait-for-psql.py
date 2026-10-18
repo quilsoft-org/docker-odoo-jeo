@@ -1,9 +1,16 @@
 #!/usr/bin/env python3
+
 import argparse
-import psycopg2
 import sys
 import time
 
+# --- LOG MEJORADO: Capturar error de importación ---
+try:
+    import psycopg2
+except ImportError:
+    print("ERROR CRITICO: La librería 'psycopg2' no está instalada.", file=sys.stderr)
+    sys.exit(1)
+# ---------------------------------------------------
 
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
@@ -11,11 +18,12 @@ if __name__ == "__main__":
     arg_parser.add_argument("--db_port", required=True)
     arg_parser.add_argument("--db_user", required=True)
     arg_parser.add_argument("--db_password", required=True)
-    arg_parser.add_argument("--timeout", type=int, default=5)
+    arg_parser.add_argument("--timeout", type=int, default=30) # Aumentado el timeout por si acaso
 
     args = arg_parser.parse_args()
 
     start_time = time.time()
+    error = ""
     while (time.time() - start_time) < args.timeout:
         try:
             conn = psycopg2.connect(
@@ -24,41 +32,18 @@ if __name__ == "__main__":
                 port=args.db_port,
                 password=args.db_password,
                 dbname="postgres",
+                connect_timeout=3 # Timeout para el intento de conexión
             )
-
-            # Esto deberia hacerlo odoo pero no lo hace habria que ver porque
-            # sql = """
-            #     -- From PostgreSQL's point of view, making 'unaccent' immutable is incorrect
-            #     -- because it depends on external data - see
-            #     -- https://www.postgresql.org/message-id/flat/201012021544.oB2FiTn1041521@wwwmaster.postgresql.org#201012021544.oB2FiTn1041521@wwwmaster.postgresql.org
-            #     -- But in the case of Odoo, we consider that those data don't
-            #     -- change in the lifetime of a database. If they do change, all
-            #     -- indexes created with this function become corrupted!
-            #     CREATE EXTENSION IF NOT EXISTS unaccent;
-            #     ALTER FUNCTION unaccent(text) IMMUTABLE;
-            # """
-
-#            print(sql)
-
-            # cr = conn.cursor()
-            # cr.execute(sql)
-            # conn.commit()
-
             error = ""
             break
         except psycopg2.OperationalError as e:
-            error = str(e)
-
-            print(
-                "Trying to connect to",
-                args.db_user,
-                args.db_host,
-                args.db_port,
-                args.db_password,
-                error
-            )
+            error = str(e).strip()
+            print(f"[WAIT-FOR-PSQL] Intento fallido: {error}", flush=True)
         time.sleep(1)
 
     if error:
-        print("Database connection failure: %s" % error, file=sys.stderr)
+        print(f"[WAIT-FOR-PSQL] ERROR: No se pudo conectar a la base de datos después de {args.timeout} segundos.", file=sys.stderr)
+        print(f"[WAIT-FOR-PSQL] Último error: {error}", file=sys.stderr)
         sys.exit(1)
+
+    sys.exit(0)
