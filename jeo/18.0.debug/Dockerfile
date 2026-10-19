@@ -7,7 +7,10 @@ USER root
 RUN /odoo/venv/bin/pip install --no-cache-dir \
     https://github.com/jobiols/wdb/archive/refs/heads/master.tar.gz#subdirectory=client
 
-# sin esto no anda el wdb
+# debugpy para debugear con visual studio
 RUN /odoo/venv/bin/pip install --no-cache-dir debugpy
+
+# parche para no chequear password en debug (re-apuntado al path del venv)
+RUN sed -i "s/raise AccessDenied()/pass/" /odoo/odoo-src/odoo/addons/base/models/res_users.py
 
 USER odoo
