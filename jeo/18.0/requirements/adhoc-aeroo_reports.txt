@@ -2,5 +2,5 @@
 genshi==0.7.7
 # git+https://github.com/aeroo/aeroolib.git
 # waiting for PR https://github.com/aeroo/aeroolib/pull/12
-git+https://github.com/adhoc-dev/aeroolib@master-fix-ods
-git+https://github.com/aeroo/currency2text.git
+git+https://github.com/adhoc-dev/aeroolib@d5bd0945c2aeb7ccd70e0e578b63f430ef9cc207
+git+https://github.com/aeroo/currency2text.git@e666e17eb54f5a49f5cfb3825d8513a4d1510249
