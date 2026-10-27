@@ -42,11 +42,14 @@ ENV PATH="${VENV_PATH}/bin:${PATH}"
 # Actualizar pip
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
-# Clonar Odoo: seguimos la rama ${ODOO_VERSION} (HEAD móvil) para traer siempre
-# los últimos cambios. Eliminar .git para ahorrar ~200MB.
-RUN git clone --depth 1 --branch ${ODOO_VERSION} \
-        https://www.github.com/odoo/odoo ${ODOO_HOME}/odoo-src && \
-    rm -rf ${ODOO_HOME}/odoo-src/.git
+# Clonar Odoo: bajamos el tarball del HEAD móvil de ${ODOO_VERSION}.
+# curl con retry + resume para redes inestables (evita los timeouts SSL de git).
+RUN curl -fSL --retry 8 --retry-delay 10 --retry-all-errors -C - \
+        -o /tmp/odoo-src.tar.gz \
+        https://codeload.github.com/odoo/odoo/tar.gz/refs/heads/${ODOO_VERSION} && \
+    mkdir -p ${ODOO_HOME}/odoo-src && \
+    tar -xzf /tmp/odoo-src.tar.gz -C ${ODOO_HOME}/odoo-src --strip-components=1 && \
+    rm -f /tmp/odoo-src.tar.gz
 
 # Instalar requerimientos de Odoo Core
 RUN pip install --no-cache-dir -r ${ODOO_HOME}/odoo-src/requirements.txt
