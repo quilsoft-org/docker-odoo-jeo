@@ -1,3 +1,10 @@
-#pandas
-defusedxml
-num2words
+# Requerimientos consolidados de la imagen 18.0 (set original, pinneado)
+defusedxml==0.7.1
+num2words==0.5.10
+openupgradelib==3.12.0
+
+# AFIP Argentina (rama odoo18 pinneada a commit)
+git+https://github.com/ingadhoc/pyafipws.git@2cf3b224977c1c5ac748bc386f3785ad06a42a87
+
+# test / coverage
+coverage==7.16.1
