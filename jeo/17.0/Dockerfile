@@ -124,7 +124,7 @@ RUN sed -i "s|http://archive.ubuntu.com|${APT_MIRROR}|g" /etc/apt/sources.list &
         "amd64") WKHTMLTOPDF_SHA=967390a759707337b46d1c02452e2bb6b2dc6d59 ;; \
         "arm64") WKHTMLTOPDF_SHA=90f6e69896d51ef77339d3f3a20f8582bdf496cc ;; \
     esac && \
-    curl -o wkhtmltox.deb -sSL \
+    curl --retry 5 --retry-delay 3 --retry-all-errors -o wkhtmltox.deb -sSL \
         https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6.1-3/wkhtmltox_0.12.6.1-3.jammy_${TARGETARCH}.deb && \
     echo ${WKHTMLTOPDF_SHA} wkhtmltox.deb | sha1sum -c - && \
     apt-get install -y --no-install-recommends ./wkhtmltox.deb && \
