@@ -42,8 +42,19 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
 # Clonar Odoo: seguimos la rama ${ODOO_VERSION} (HEAD móvil) para traer siempre
 # los últimos cambios. Eliminar .git para ahorrar ~200MB.
-RUN git clone --depth 1 --branch ${ODOO_VERSION} \
-        https://www.github.com/odoo/odoo ${ODOO_HOME}/odoo-src && \
+# github.com:443 se corta a veces (VPN/red intermitente) → reintentamos el clone
+# con limpieza previa, porque un clone fallido deja un directorio parcial.
+RUN set -e; \
+    for i in $(seq 1 5); do \
+        rm -rf ${ODOO_HOME}/odoo-src; \
+        if git clone --depth 1 --branch ${ODOO_VERSION} \
+                https://www.github.com/odoo/odoo ${ODOO_HOME}/odoo-src; then \
+            break; \
+        fi; \
+        echo "git clone falló (intento $i/5), reintentando en 5s..."; \
+        sleep 5; \
+    done; \
+    test -d ${ODOO_HOME}/odoo-src/.git || { echo "git clone agotó los 5 reintentos"; exit 1; }; \
     rm -rf ${ODOO_HOME}/odoo-src/.git
 
 # Odoo 17 pinnea gevent==21.8.0 y greenlet==1.1.2 para Python 3.10 (jammy), pero
@@ -72,11 +83,24 @@ RUN pip install --no-cache-dir \
     xlrd \
     xlwt
 
-# Requerimientos adicionales del usuario
+# Requerimientos adicionales del usuario.
+# Varios son git+https://github.com/... que pip clona sin reintento; como
+# github.com:443 se corta intermitentemente (VPN), reintentamos el bloque entero.
+# pip es idempotente: cada reintento solo reclona lo que falló.
 COPY ./requirements /req
-RUN pip install --no-cache-dir -r /req/requirements.txt && \
-    pip install --no-cache-dir -r /req/odoo-argentina.txt && \
-    pip install --no-cache-dir -r /req/adhoc-aeroo_reports.txt && \
+RUN set -e; \
+    ok=0; \
+    for i in $(seq 1 5); do \
+        if pip install --no-cache-dir -r /req/requirements.txt && \
+           pip install --no-cache-dir -r /req/odoo-argentina.txt && \
+           pip install --no-cache-dir -r /req/adhoc-aeroo_reports.txt; then \
+            ok=1; \
+            break; \
+        fi; \
+        echo "pip install de requirements falló (intento $i/5), reintentando en 5s..."; \
+        sleep 5; \
+    done; \
+    [ "$ok" = 1 ] || { echo "pip install agotó los 5 reintentos"; exit 1; }; \
     rm -rf /req
 
 # Instalar rtlcss y limpiar cache de npm
