@@ -131,6 +131,7 @@ RUN sed -i "s|http://archive.ubuntu.com|${APT_MIRROR}|g" /etc/apt/sources.list &
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         ca-certificates \
         curl \
+        git \
         gnupg \
         fonts-dejavu-core \
         fonts-noto-cjk \
