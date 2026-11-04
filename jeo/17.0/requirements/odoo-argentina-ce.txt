@@ -1,4 +1,3 @@
-# requirements oficial de ingadhoc/odoo-argentina-ce (rama 17.0)
 pyOpenSSL
 M2Crypto
 httplib2>=0.7
