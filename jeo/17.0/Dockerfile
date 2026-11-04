@@ -40,22 +40,19 @@ ENV PATH="${VENV_PATH}/bin:${PATH}"
 # Actualizar pip
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
-# Clonar Odoo: seguimos la rama ${ODOO_VERSION} (HEAD móvil) para traer siempre
-# los últimos cambios. Eliminar .git para ahorrar ~200MB.
-# github.com:443 se corta a veces (VPN/red intermitente) → reintentamos el clone
-# con limpieza previa, porque un clone fallido deja un directorio parcial.
+# Descargar Odoo: seguimos la rama ${ODOO_VERSION} (HEAD móvil) para traer siempre
+# los últimos cambios. En lugar de `git clone` (que no se puede reanudar y falla
+# cuando github.com:443 se corta por la VPN/red intermitente), descargamos el
+# tarball con curl usando reintentos + reanudación parcial (-C -), mucho más
+# robusto ante cortes. El tarball de HEAD de rama equivale exactamente al
+# `git clone --depth 1 --branch`, y ya no hace falta borrar .git (no lo trae).
 RUN set -e; \
-    for i in $(seq 1 5); do \
-        rm -rf ${ODOO_HOME}/odoo-src; \
-        if git clone --depth 1 --branch ${ODOO_VERSION} \
-                https://www.github.com/odoo/odoo ${ODOO_HOME}/odoo-src; then \
-            break; \
-        fi; \
-        echo "git clone falló (intento $i/5), reintentando en 5s..."; \
-        sleep 5; \
-    done; \
-    test -d ${ODOO_HOME}/odoo-src/.git || { echo "git clone agotó los 5 reintentos"; exit 1; }; \
-    rm -rf ${ODOO_HOME}/odoo-src/.git
+    url="https://github.com/odoo/odoo/archive/refs/heads/${ODOO_VERSION}.tar.gz"; \
+    cd /tmp && \
+    curl -fSL --retry 30 --retry-delay 3 --retry-all-errors -C - -o odoo.tar.gz "$url" && \
+    mkdir -p ${ODOO_HOME}/odoo-src && \
+    tar -xzf odoo.tar.gz --strip-components=1 -C ${ODOO_HOME}/odoo-src && \
+    rm -f odoo.tar.gz
 
 # Odoo 17 pinnea gevent==21.8.0 y greenlet==1.1.2 para Python 3.10 (jammy), pero
 # gevent 21.8.0 no tiene wheel Linux cp310 y no compila con Cython 3.x. Subimos a

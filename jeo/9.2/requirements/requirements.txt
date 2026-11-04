@@ -1,2 +1,0 @@
-dbfread
-#hashlib >= 20081119
