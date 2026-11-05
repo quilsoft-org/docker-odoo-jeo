@@ -58,7 +58,15 @@ RUN set -e; \
 # gevent 21.8.0 no tiene wheel Linux cp310 y no compila con Cython 3.x. Subimos a
 # las versiones que Odoo ya usa para 3.11+ (gevent 22.10.2 + greenlet 2.0.2),
 # que sí traen wheel cp310.
-RUN sed -i 's/gevent==21.8.0/gevent==22.10.2/; s/greenlet==1.1.2/greenlet==2.0.2/' \
+#
+# Para Python < 3.12 (jammy = 3.10) Odoo pineea pyopenssl==21.0.0 + cryptography==3.4.8,
+# pero necesitamos pyOpenSSL >= 24.1.0 (firma digital AFIP / pyafipws). Subimos a las
+# mismas versiones que Odoo ya valida para 3.12: pyopenssl 24.1.0 + cryptography 42.0.8
+# (pyOpenSSL 24.1.0 requiere cryptography >= 41.0.5, no puede quedar en 3.4.8).
+RUN sed -i \
+    's/gevent==21.8.0/gevent==22.10.2/; s/greenlet==1.1.2/greenlet==2.0.2/; \
+     s/pyopenssl==21.0.0/pyopenssl==24.1.0/; \
+     s/cryptography==3.4.8/cryptography==42.0.8/' \
     ${ODOO_HOME}/odoo-src/requirements.txt
 
 # Instalar requerimientos de Odoo Core
