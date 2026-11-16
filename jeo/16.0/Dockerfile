@@ -3,6 +3,13 @@ LABEL maintainer="Odoo S.A. <info@odoo.com>"
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
+# bullseye is EOL (LTS ended 2026-08-31): use the Debian archive so apt can
+# still fetch old package revisions; deb.debian.org no longer serves them (404).
+RUN printf 'deb http://archive.debian.org/debian bullseye main\ndeb http://archive.debian.org/debian-security bullseye-security main\n' \
+        > /etc/apt/sources.list \
+    && printf 'Acquire::Check-Valid-Until "false";\n' \
+        > /etc/apt/apt.conf.d/99no-check-valid-until
+
 # Generate locale C.UTF-8 for postgres and general locale data
 ENV LANG=C.UTF-8
 
@@ -51,7 +58,7 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/* wkhtmltox.deb
 
 # install latest postgresql-client
-RUN echo 'deb http://apt.postgresql.org/pub/repos/apt/ bullseye-pgdg main' > /etc/apt/sources.list.d/pgdg.list \
+RUN echo 'deb https://apt-archive.postgresql.org/pub/repos/apt/ bullseye-pgdg main' > /etc/apt/sources.list.d/pgdg.list \
     && GNUPGHOME="$(mktemp -d)" \
     && export GNUPGHOME \
     && repokey='B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8' \
@@ -66,6 +73,11 @@ RUN echo 'deb http://apt.postgresql.org/pub/repos/apt/ bullseye-pgdg main' > /et
 
 # Install rtlcss (on Debian buster)
 RUN npm install -g rtlcss
+
+# Telefonica DNS sinkholes files.pythonhosted.org (PyPI's CDN) to a loopback
+# address, so pip cannot download from the default index. Use a full PyPI mirror
+# that serves files from its own domain instead.
+ENV PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
 
 # Antes de instlar odoo actualizamos xlswriter porque odoo instala una version vieja
 RUN pip install xlsxwriter>=3.2.5
@@ -132,8 +144,8 @@ RUN \
     && chown -R odoo.odoo /opt/odoo \
     && chown -R odoo.odoo /var/odoo
 
-# instalar el ultimo pip
-RUN curl -fsSL https://bootstrap.pypa.io/get-pip.py -o get-pip.py \
+# instalar el ultimo pip compatible con python 3.9 (bullseye)
+RUN curl -fsSL https://bootstrap.pypa.io/pip/3.9/get-pip.py -o get-pip.py \
     && python3 get-pip.py \
     && rm get-pip.py
 
