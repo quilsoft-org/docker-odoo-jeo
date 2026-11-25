@@ -101,12 +101,13 @@ ENV PATH="${VENV_PATH}/bin:${ODOO_HOME}/odoo-src:${PATH}"
 # Mirror apt (ARG para construir en otros lados sin editar el Dockerfile)
 ARG APT_MIRROR=http://ubuntu.unc.edu.ar
 
-# Solo librerías de RUNTIME (sin *-dev, sin build-essential, sin git, sin npm)
+# Solo librerías de RUNTIME (sin *-dev, sin build-essential, sin npm)
 RUN sed -i "s|http://archive.ubuntu.com|${APT_MIRROR}|g" /etc/apt/sources.list.d/ubuntu.sources && \
     apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         ca-certificates \
         curl \
+	git \
         gnupg \
         fonts-dejavu-core \
         fonts-noto-cjk \
